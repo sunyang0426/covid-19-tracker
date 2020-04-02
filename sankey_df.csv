@@ -1,0 +1,61 @@
+,from,to,count
+0,Asia,BC,2
+1,Asia,Manitoba,2
+2,Asia,Ontario,10
+3,Asia,Quebec,1
+4,Australia,Nova Scotia,1
+5,Canada,Alberta,1
+6,Canada,NWT,1
+7,Canada,Saskatchewan,5
+8,Canada,Yukon,1
+9,Caribbeans,NL,1
+10,Caribbeans,Ontario,16
+11,Caribbeans,PEI,2
+12,Caribbeans,Quebec,1
+13,China,BC,4
+14,China,Ontario,4
+15,Cruise,Alberta,4
+16,Cruise,BC,3
+17,Cruise,NL,1
+18,Cruise,New Brunswick,7
+19,Cruise,Ontario,14
+20,Cruise,PEI,1
+21,Cruise,Quebec,1
+22,Cruise,Repatriated,13
+23,Egypt,BC,8
+24,Egypt,Ontario,15
+25,Egypt,Saskatchewan,1
+26,Europe,Alberta,1
+27,Europe,BC,2
+28,Europe,NL,1
+29,Europe,New Brunswick,2
+30,Europe,Nova Scotia,1
+31,Europe,Ontario,38
+32,Europe,PEI,3
+33,Europe,Quebec,2
+34,Iran,BC,11
+35,Iran,Ontario,14
+36,Iran,Quebec,1
+37,Italy,BC,1
+38,Italy,Ontario,6
+39,Italy,Quebec,1
+40,Mexico,BC,1
+41,Mexico,Ontario,3
+42,Mexico,Saskatchewan,3
+43,Middle East,Ontario,3
+44,Middle East,Saskatchewan,1
+45,Nigeria,Saskatchewan,1
+46,South America,Ontario,7
+47,United Kingdom,BC,1
+48,United Kingdom,New Brunswick,1
+49,United Kingdom,Ontario,14
+50,United Kingdom,PEI,1
+51,United States,Alberta,3
+52,United States,BC,1
+53,United States,NL,1
+54,United States,Nova Scotia,1
+55,United States,Ontario,67
+56,United States,PEI,2
+57,United States,Quebec,2
+58,United States,Saskatchewan,8
+59,United States,Yukon,2

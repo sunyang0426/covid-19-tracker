@@ -13,6 +13,8 @@ external_stylesheets = ['https://codepen.io/amyoshino/pen/jzXypZ.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
+server = app.server 
+
 app.title = 'COVID-19 Dashboard'
 
 # ----------------- Styling ------------------------------------------------
@@ -22,13 +24,14 @@ colors = {
     'text': '#DCDCDC',
     'grid': "#434343",
     'line': '#72bcd4',
-    'bar': 'FFB266',
+    'bar': '#FFB266',
 }
 
 stats_charts_style = dict(
 	plot_bgcolor =  colors['background'],
 	paper_bgcolor = colors['background'],
 	font = {'color': colors['text']},
+	margin = {'l':90, 'b':40, 't':10, 'r':40}
 
 )
 
@@ -48,6 +51,18 @@ tab_selected_style = {
 	'backgroundColor': '#4682B4',
 	'color': 'white',
 	'padding': '6px'
+}
+
+indicator_style = {
+	'backgroundColor': colors['line'],
+	'display':'inline-block',
+	'height': 130,
+	'width': 180,
+	'textAlign': 'center',
+	'margin-right': 30,
+	'color': colors['text'],
+	'fontWeight': 'bold',
+
 }
 
 
@@ -99,13 +114,14 @@ fig = px.scatter_mapbox(province_case,
                         hover_name = 'province',
                         size = 'cases', size_max = 45,
                         color_discrete_sequence = ['#72bcd4'], 
-                        width = 800, height = 600,
+                        width = 500, height = 500,
                         )
 
 fig.update_layout(mapbox = {'accesstoken': token, 
-                           'center': {'lon': -87.3467712, 'lat':58.1303673},
-                            'zoom': 2},
-                 mapbox_style ='dark', paper_bgcolor = colors['background'])
+                           'center': {'lon': -100.3467712, 'lat':60.1303673},
+                            'zoom': 1.85},
+                 mapbox_style ='dark', paper_bgcolor = colors['background'],
+                 margin = {'l': 10, 'r': 10, 't':10, 'b':10})
 
 ## data for the canada line chart
 canada = pd.DataFrame(dff.index.value_counts()).reset_index()
@@ -136,6 +152,67 @@ testing = rename_first_column(testing)
 mortailty = rename_first_column(mortality)
 recovered = rename_first_column(recovered)
 
+# ------------------------ Prepare data for the Sankey diagram --------------
+sankey_df = pd.read_csv('sankey_df.csv')
+
+# A function to generate Sankey diagram. 
+# Credit to https://medium.com/kenlok/how-to-create-sankey-diagrams-from-dataframes-in-python-e221c1b4d6b0
+def genSankey(df,cat_cols=[],value_cols=''):
+    labelList = []
+    for catCol in cat_cols:
+        labelListTemp =  list(set(df[catCol].values))
+        labelList = labelList + labelListTemp
+    # transform df into a source-target pair
+    for i in range(len(cat_cols)-1):
+        if i==0:
+            sourceTargetDf = df[[cat_cols[i],cat_cols[i+1],value_cols]]
+            sourceTargetDf.columns = ['source','target','count']
+        else:
+            tempDf = df[[cat_cols[i],cat_cols[i+1],value_cols]]
+            tempDf.columns = ['source','target','count']
+            sourceTargetDf = pd.concat([sourceTargetDf,tempDf])
+        sourceTargetDf = sourceTargetDf.groupby(['source','target']).agg({'count':'sum'}).reset_index()       
+    # add index for source-target pair
+    sourceTargetDf['sourceID'] = sourceTargetDf['source'].apply(lambda x: labelList.index(x))
+    sourceTargetDf['targetID'] = sourceTargetDf['target'].apply(lambda x: labelList.index(x))    
+    # creating the sankey diagram
+    data = dict(
+        type='sankey',
+        valueformat = '.f',
+        node = dict(
+          pad = 10,
+          thickness = 30,
+          line = dict(
+            color = "black",
+            width = 0.5
+          ),
+          label = labelList,
+          color = colors['line']
+        ),
+        link = dict(
+          source = sourceTargetDf['sourceID'],
+          target = sourceTargetDf['targetID'],
+          value = sourceTargetDf['count'],
+
+        )
+      )
+    
+    layout =  dict(
+        font = dict(
+          size = 10
+        ),     
+        plot_bgcolor=colors['background'],
+        paper_bgcolor=colors['background'],
+        height = 450, 
+        margin = {'l':50, 'b':40, 't':30, 'r':50}
+    )
+       
+    fig = go.Figure(data = [go.Sankey(data)], layout = layout)
+    return fig
+
+
+
+
 
 
 # --------------- Part Two. App layout ---------------------
@@ -153,14 +230,13 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
  #    # Dashboard Intro
     html.Div(children=[
     	html.P("This dashboard tracks the number and distribution of COVID-19 cases in Canada in real-time. \
-    		Data used to produce this dashboard is a publicly available dataset collected by ", 
+    		Data used for this project is a publicly available dataset collected by ", 
     		style = {'display': 'inline'}),
-    	html.A('students', href = 'https://art-bd.shinyapps.io/covid19canada/', 
+    	html.A('COVID-19 Canada Open Data Working Group', href = 'https://github.com/ishaberry/Covid19Canada', 
     		target = '_blank',
     		style = {'display': 'inline'}),
-    	html.P(" at the University of Toronto’s Dalla Lana School of Public Health.\
-    		This dashboard allows a user to cross-filter cumulative cases and daily \
-    		increase of a province or territory.", style = {'display': 'inline'}),
+    	html.P(". This dashboard allows a user to filter cumulative cases and daily \
+    		increase in a province or territory.", style = {'display': 'inline'}),
     	html.P(df.columns[0].split('Please')[0]),
 
     	], 
@@ -171,51 +247,63 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
 			        'padding-right': 70}
 	    ),
 
-
- #    # Overview of the country (map and line chart)
+    # indicators
     html.Div([
-    	# Map
+    	html.Div([html.H3(df.shape[0]), 
+    			  html.H5('Confirmed')], 
+    			  style = indicator_style, 
+    			  className = 'three columns'),
+    	html.Div([html.H3(mortailty.shape[0]),
+    			  html.H5('Deaths')], 
+    			  style = indicator_style, 
+    			  className = 'three columns'),
+    	html.Div([html.H3(recovered.groupby('province').cumulative_recovered.max().sum()),
+    			  html.H5('Recovered')], 
+    			  style = indicator_style, 
+    			  className = 'three columns'),
+    	html.Div([html.H3(testing.groupby('province').cumulative_testing.max().sum()),
+    			  html.H5('Testing')], 
+    			  style = indicator_style, 
+    			  className = 'three columns'),
+
+    	], className = 'row', style = {'margin-top': 30, 'padding-left': 150}),
+
+
+    # Overview of the country (map and line chart)
+    html.Div([
+
+    	# line chart
+    	html.Div([
+    		# selector
+    		html.Div([
+	    		dcc.RadioItems(
+	    			id = 'scale-type',
+	    			options = [{'label': i, 'value': i} for i in ['Linear', 'Log']],
+	    			value = 'Log',
+	    			labelStyle = {'display': 'inline-block'},
+	    			style = {'background': colors['background'], 
+	    					'color': colors['text'], 
+	    					'padding-top': 40,
+	    					'padding-left': 70,}
+	    			)
+    		  ]),
+    		# the chart
+    		html.Div([
+	    		dcc.Graph(
+	    			id = 'canada-line',
+	    			)
+    		  ])
+    		], className = 'six columns'),
+
+    	# map
     	html.Div([
     		html.Div([
-    			# html.P('Map: Distribution of confirmed cases by province or territory', 
-    			# 	style = {'color': colors['text'], 'padding-left': 170, 
-    			# 			}), # map title
 	    		dcc.Graph(
 	    			id = 'canada-map',
 	    			figure = fig,
 	    			)]),
-    		], className = 'seven columns'),
-    	# line chart
-    	html.Div([
-    		dcc.Graph(
-    			id = 'canada-line',
-    			figure = {
-    				'data': [dict(x = canada.index, 
-    						y = canada.cumu, 
-    						type = 'line', 
-    						name = 'Cumulative cases',
-    						marker = {'color': colors['line']}),
-    						dict(x = canada.index, 
-    							y = canada.date_report, 
-    							type = 'bar', 
-    							name = 'New confirmed',
-    							marker = {'color': colors['bar']})],
-    				'layout': {
-    				    'plot_bgcolor': colors['background'],
-    				    'paper_bgcolor': colors['background'],
-    				    'font': {
-    				        'color': colors['text']},
-    				    'height': '550',
-    				    'width': '450',
-    				    'xaxis': {'gridcolor': colors['grid'], 'gridwidth': 0.05},
-    				    'yaxis': {'gridcolor': colors['grid'], 'gridwidth': 0.05, 'title': 'No. of cases'},
-    				    'legend':{ 'x':0, 'y':1},
-    				    		},
-    				    },
-
-    			)
-    		], className = 'five columns'),
-	    ], className = 'row'), # end of country overview
+    		], className = 'six columns')
+	    ], className = 'row', style = {'padding-top': 50}), # end of country overview
 
 
 
@@ -260,7 +348,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     				dcc.Graph(id = 'line-by-province'),
     				],),
 
-    		], style = {'backgroundColor': colors['background'], 'padding-top': -50}), 
+    		], style = {'backgroundColor': colors['background']}), 
 
     	], className = 'seven columns'), # end of selectors + line charts
 
@@ -272,7 +360,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
 			], className = 'five columns', style={'margin-top': 100}),
 
 
-    ], className = 'row'), # end of province div
+    ], className = 'row', style = {'margin-top': 70}), # end of province div
 
 
 
@@ -293,6 +381,29 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     		style = tabs_styles,),
 
     	dcc.Graph(id = 'other-stats'),
+    	], style = {'margin-top': 70}),
+
+    # sankey diagram
+    html.Div([
+        html.Div(children = ['At this moment, more than half of COVID-19 cases in Canada related to community transmission. \
+            But at the early stage of the outbreak, the majority were due to traveling. \
+            The lack of a universal reporting format among provinces and territories makes it hard to have \
+            a clear picture of how human migration across borders initiated the spread within Canada. \
+            Less than 10 percent of cases reported by governments indicating whether there was a travel history \
+            and even a smaller fraction of reported cases indicating where this patient had traveled to. \
+            The data is not perfect. However, the graphic below can still try to visualize where the early \
+            waves of cases came from.'],
+                    style={ 'textAlign': 'left',
+                                'color': colors['text'],
+                                'padding-left': 70,
+                                'padding-right': 70,
+                                'padding-top': 70}
+            ),
+
+    	dcc.Graph(
+    		id = 'sankey',
+    		figure = genSankey(sankey_df, cat_cols = ['from', 'to'], value_cols = 'count'),
+    		)
     	]),
 
     # credits
@@ -311,6 +422,40 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
 
 
 # ------------ Part Three. Callbacks --------------------
+@app.callback(
+	Output('canada-line', 'figure'),
+	[Input('scale-type', 'value')]
+	)
+def canada_line_update(yaxis_type):
+
+	return{
+
+		'data': [dict(x = canada.index, 
+				y = canada.cumu, 
+				type = 'line', 
+				name = 'Cumulative cases',
+				marker = {'color': colors['line']}),
+				dict(x = canada.index, 
+					y = canada.date_report, 
+					type = 'bar', 
+					name = 'New confirmed',
+					marker = {'color': colors['bar']})],
+		'layout': dict(
+			plot_bgcolor = colors['background'],
+			paper_bgcolor = colors['background'],
+			font = dict(color = colors['text']),
+			xaxis = {'gridcolor': colors['grid'], 'gridwidth': 0.05},
+			yaxis = {'gridcolor': colors['grid'], 'gridwidth': 0.05,
+					'title': 'No. of cases',
+					'type': 'linear' if yaxis_type == 'Linear' else 'log'},
+	 	    legend={ 'x':0, 'y':1},
+	 	    margin = {'l':90, 'b':40, 't':10, 'r':40}
+			)
+
+		}
+
+
+
 @app.callback(
 	Output('line-by-province', 'figure'),
 	[Input('province-select', 'value'),
@@ -337,6 +482,7 @@ def update_line_chart(province, calculation_type):
 				plot_bgcolor =  colors['background'],
 				paper_bgcolor = colors['background'],
 				font = {'color': colors['text']},
+				margin = {'l':90, 'b':40, 't':10, 'r':40}
 
 				)
 		}
@@ -355,6 +501,7 @@ def update_line_chart(province, calculation_type):
 				plot_bgcolor =  colors['background'],
 				paper_bgcolor = colors['background'],
 				font = {'color': colors['text']},
+				margin = {'l':90, 'b':40, 't':10, 'r':40}
 				)
 		}
 
